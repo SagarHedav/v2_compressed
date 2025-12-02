@@ -1,0 +1,67 @@
+========================================
+TASKS OF THE DAY
+========================================
+
+1) UNDERSTAND THE DATA
+----------------------
+- Data is text-heavy, structured, academic.
+- Very suitable for RAG.
+- Needs structured chunking + handling of tables/figures.
+- No OCR complexity.
+- Must maintain logical flow using headings.
+- Embedding model must perform well on long academic text.
+
+
+2) DIFFERENT AI MODELS WE CAN TRY
+-----------------------------------------------------------------------------------------------------------------------------------
+Model / API Name        | Max Input Tokens       | Max Output Tokens | Ease of Setup | Ease of Free Access | RAG Fit | Avg Rating
+-----------------------------------------------------------------------------------------------------------------------------------
+Gemini 2.5 Flash        | 1,048,576 (1M)         | 65,536            | 9             | 9                   | 9       | 9.0
+Claude 3 Haiku          | 200,000                | 4,096             | 8             | 5                   | 8       | 7.0
+Llama 3 8B/70B          | 8,192 – 128,000        | ~4,096            | 5             | 10                  | 7       | 7.3
+Perplexity Sonar API    | N/A (Paid Only)        | N/A (Paid Only)   | 8             | 1                   | 9       | 6.0
+Grok-4-Fast API         | N/A (Paid Only)        | N/A (Paid Only)   | 7             | 1                   | 7       | 5.0
+
+
+3) DIFFERENT EMBEDDING MODELS
+
+------------------------------------------------------------
+1. OPEN-SOURCE (SELF-HOST FOR FREE)
+------------------------------------------------------------
+These models are free to download and run on our own infrastructure.
+They offer maximum cost control (infinite longevity) but require some setup.
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Model Name                        | Key Strength                                                                | Dimensions | Max Seq Length  | Hosting / Access
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+BAAI/bge-base-en-v1.5             | Top English retrieval. High performance on MTEB. Excellent for RAG.         | 768        | 512             | Hugging Face / Ollama
+intfloat/e5-base-v2               | Balanced, robust, high accuracy-speed tradeoff. Multi-domain performance.   | 768        | 512             | Hugging Face / Ollama
+all-MiniLM-L6-v2                  | Fastest & smallest. Lightweight. Great baseline embedding model.            | 384        | 256             | Hugging Face / Ollama
+EmbeddingGemma-300M               | Lightweight multilingual. Efficient for limited hardware.                   | 1024       | 512             | Hugging Face
+
+
+------------------------------------------------------------
+2. API-BASED (FREE TIER ACCESS)
+------------------------------------------------------------
+Models hosted by their providers; we access them through an API.
+
+Model Name                     | Key Strength                                                            | Dimensions | Max Seq Length | Free API Status
+--------------------------------------------------------------------------------------------------------------------------------------------
+Gemini Embedding               | Simple API. Works perfectly with Gemini LLMs. Multimodal support.      | 768        | 2048           | FREE (High limits)
+OpenAI text-embedding-3-small  | Industry standard. Highly optimized. Great reliability.                | 1536       | 8192           | Paid (No free tier)
+
+
+------------------------------------------------------------
+RAG MODEL SELECTION ADVICE
+------------------------------------------------------------
+
+For academic PDFs (dense + technical material):
+
+Fastest API Development:
+- Use the Gemini Embedding model.
+- Best pairing: Gemini 2.5 Flash (Generation) + Gemini Embedding (Retrieval).
+- Easiest integration + completely free API access.
+
+Highest Accuracy (Self-Hosted):
+- Use BAAI/bge-base-en-v1.5 or intfloat/e5-base-v2.
+- These achieve top retrieval accuracy on benchmark datasets.
+- Ideal for maximum precision in chatbot answers.
