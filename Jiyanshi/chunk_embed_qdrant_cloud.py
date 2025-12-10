@@ -9,6 +9,7 @@ from langchain_qdrant import QdrantVectorStore
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
 from dotenv import load_dotenv
 
 # Load environment variables from .env (QDRANT_URL, QDRANT_API_KEY, etc.)
@@ -118,31 +119,104 @@ class VectorStoreManager:
 
         self.embeddings = HuggingFaceEmbeddings(
             model_name=embedding_model,
-            model_kwargs={'device': 'cpu'},  # Use 'cuda' if you have GPU
-            encode_kwargs={'normalize_embeddings': True}
+            model_kwargs={"device": "cpu"},  # Use 'cuda' if you have GPU
+            encode_kwargs={"normalize_embeddings": True},
         )
 
-        # Qdrant Cloud client
+        # Qdrant Cloud client with higher timeout
         self.client = QdrantClient(
             url=self.qdrant_url,
             api_key=self.qdrant_api_key,
+            timeout=60.0,
+            prefer_grpc=False,
+        )
+
+        # Compute embedding dimension once
+        test_vec = self.embeddings.embed_query("dimension test")
+        self.embedding_dim = len(test_vec)
+        logger.info(f"Detected embedding dimension: {self.embedding_dim}")
+
+    def _recreate_collection(self):
+        """(Re)create collection with proper vector params."""
+        logger.info(
+            f"Recreating collection '{self.collection_name}' "
+            f"with dim={self.embedding_dim}, distance=COSINE"
+        )
+        self.client.recreate_collection(
+            collection_name=self.collection_name,
+            vectors_config=VectorParams(
+                size=self.embedding_dim,
+                distance=Distance.COSINE,
+            ),
         )
 
     def create_collection(self, documents: List[Document]):
-        """Create or update vector collection with documents on Qdrant Cloud"""
-        logger.info(f"Creating vector store collection on Qdrant Cloud: {self.collection_name}")
+        """
+        Manually create / recreate collection and upsert all documents in small batches.
+        Uses qdrant-client directly to avoid long blocking requests and timeouts.
+        """
+        logger.info(
+            f"Creating vector store collection on Qdrant Cloud (manual upsert): {self.collection_name}"
+        )
 
         try:
-            vector_store = QdrantVectorStore.from_documents(
-                documents=documents,
-                embedding=self.embeddings,
-                url=self.qdrant_url,
-                api_key=self.qdrant_api_key,
-                collection_name=self.collection_name,
-                force_recreate=True,   # overwrite existing collection if present
+            # 1) Recreate collection with correct vector size
+            self._recreate_collection()
+
+            # 2) Upsert in small batches to avoid timeouts
+            batch_size = 32  # small batch to keep each request light
+            total_docs = len(documents)
+            logger.info(f"Upserting {total_docs} documents in batches of {batch_size}")
+
+            for start in range(0, total_docs, batch_size):
+                batch_docs = documents[start : start + batch_size]
+                texts = [d.page_content for d in batch_docs]
+
+                # Embed this batch
+                vectors = self.embeddings.embed_documents(texts)
+
+                # Prepare payloads (include text + metadata)
+                payloads = []
+                for doc in batch_docs:
+                    payload = dict(doc.metadata) if doc.metadata else {}
+                    payload["text"] = doc.page_content
+                    payloads.append(payload)
+
+                # Simple numeric IDs
+                ids = list(range(start, start + len(batch_docs)))
+
+                points = [
+                    PointStruct(
+                        id=ids[i],
+                        vector=vectors[i],
+                        payload=payloads[i],
+                    )
+                    for i in range(len(batch_docs))
+                ]
+
+                # Upsert with wait=False to avoid read timeouts
+                self.client.upsert(
+                    collection_name=self.collection_name,
+                    points=points,
+                    wait=False,  # don't block until indexing fully done
+                )
+
+                logger.info(
+                    f"Upserted batch {start}–{start + len(batch_docs) - 1} "
+                    f"({len(batch_docs)} points)"
+                )
+
+            logger.info(
+                f"Successfully upserted {total_docs} points into collection {self.collection_name}"
             )
 
-            logger.info(f"Successfully created collection with {len(documents)} documents")
+            # 3) Return a LangChain QdrantVectorStore bound to this client for queries
+            vector_store = QdrantVectorStore(
+                client=self.client,
+                collection_name=self.collection_name,
+                embedding=self.embeddings,
+            )
+
             return vector_store
 
         except Exception as e:
@@ -156,21 +230,23 @@ class VectorStoreManager:
             return {
                 "name": info.name,
                 "vectors_count": info.vectors_count,
-                "status": info.status
+                "status": info.status,
             }
         except Exception as e:
             logger.error(f"Error getting collection info: {e}")
             return None
 
 
-def process_cleaned_text(text_file_path: str, collection_name: str = "educational_content"):
+def process_cleaned_text(
+    text_file_path: str, collection_name: str = "educational_content"
+):
     """
     Main pipeline: Load cleaned text → Chunk → Embed → Store (Qdrant Cloud)
     """
     logger.info(f"Starting processing for: {text_file_path}")
 
     try:
-        with open(text_file_path, 'r', encoding='utf-8') as f:
+        with open(text_file_path, "r", encoding="utf-8") as f:
             cleaned_text = f.read()
         logger.info(f"Loaded {len(cleaned_text)} characters from {text_file_path}")
     except Exception as e:
@@ -180,11 +256,11 @@ def process_cleaned_text(text_file_path: str, collection_name: str = "educationa
     # 1. Chunk text
     chunker = TextChunker(
         chunk_size=800,
-        chunk_overlap=100
+        chunk_overlap=100,
     )
     documents = chunker.chunk_text(cleaned_text, text_file_path)
 
-    # 2. Create collection on Qdrant Cloud
+    # 2. Create collection on Qdrant Cloud (manual upsert) and get LC vector store
     vector_manager = VectorStoreManager(
         collection_name=collection_name,
         embedding_model="sentence-transformers/all-mpnet-base-v2",
@@ -195,12 +271,17 @@ def process_cleaned_text(text_file_path: str, collection_name: str = "educationa
     # 3. Log collection info
     info = vector_manager.get_collection_info()
     if info:
-        logger.info(f"Collection created on Qdrant Cloud: {info['name']} with {info['vectors_count']} vectors")
+        logger.info(
+            f"Collection created on Qdrant Cloud: {info['name']} "
+            f"with {info['vectors_count']} vectors"
+        )
 
     return vector_store
 
 
-def process_multiple_files(text_files: List[str], collection_name: str = "educational_content"):
+def process_multiple_files(
+    text_files: List[str], collection_name: str = "educational_content"
+):
     """
     Process multiple text files into a single collection on Qdrant Cloud
     """
@@ -215,7 +296,7 @@ def process_multiple_files(text_files: List[str], collection_name: str = "educat
         logger.info(f"Processing: {file_path}")
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 text = f.read()
 
             documents = chunker.chunk_text(text, file_path)
@@ -231,12 +312,17 @@ def process_multiple_files(text_files: List[str], collection_name: str = "educat
         logger.error("No documents to process")
         return None
 
-    logger.info(f"Creating vector store with {len(all_documents)} total chunks on Qdrant Cloud")
+    logger.info(
+        f"Creating vector store with {len(all_documents)} total chunks on Qdrant Cloud"
+    )
     vector_store = vector_manager.create_collection(all_documents)
 
     info = vector_manager.get_collection_info()
     if info:
-        logger.info(f"Final collection on Qdrant Cloud: {info['name']} with {info['vectors_count']} vectors")
+        logger.info(
+            f"Final collection on Qdrant Cloud: {info['name']} "
+            f"with {info['vectors_count']} vectors"
+        )
 
     return vector_store
 
@@ -244,8 +330,8 @@ def process_multiple_files(text_files: List[str], collection_name: str = "educat
 def main_example():
     # Example: process a single cleaned text file and store in Qdrant Cloud
     vector_store = process_cleaned_text(
-        text_file_path="processed/cleaned_book.txt",  # Your cleaned text file
-        collection_name="mil_course"
+        text_file_path="processed/combined_book.txt",  # Your cleaned text file
+        collection_name="mil_course",
     )
 
     if vector_store:
