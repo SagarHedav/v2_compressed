@@ -43,7 +43,7 @@ V2 is built on a multi-layered academic retrieval system consisting of:
 ### **1. Open-Source LLM**
 
 * Scalable, cost-effective, and less dependent on deprecated APIs.
-* Candidates: LLaMA, Mistral, Qwen, etc.
+* Candidates: LLaMA, Deepseek, Qwen, etc.
 * Served through an inference engine (vLLM/TGI).
 
 ### **2. Vector Database**
