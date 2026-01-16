@@ -14,7 +14,7 @@ export function Navbar() {
     // Auth Check
     const user = JSON.parse(localStorage.getItem("user") || "null");
     const isLoggedIn = !!user;
-    const isTeacher = user?.role === "teacher";
+
 
     const NavLink = ({ to, icon: Icon, children }) => {
         const isActive = location.pathname === to;
@@ -41,7 +41,7 @@ export function Navbar() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20">
                         <BookOpen className="h-5 w-5 text-accent" />
                     </div>
-                    <span className="text-lg font-semibold tracking-tight">MILchatbot</span>
+                    <span className="text-lg font-semibold tracking-tight">DigiLab</span>
                 </Link>
 
                 {/* Desktop Nav - Centered */}
@@ -78,11 +78,7 @@ export function Navbar() {
                         </svg>
                     </Button>
 
-                    {isLoggedIn && (
-                        <div className="hidden rounded-full border border-border-base dark:border-white/10 bg-accent/5 dark:bg-white/5 px-3 py-1 text-xs font-mono text-foreground-muted dark:text-foreground-subtle md:block">
-                            {isTeacher ? t("nav.teacherMode") : t("nav.studentMode")}
-                        </div>
-                    )}
+
 
                     {/* Settings Dropdown */}
                     <div className="relative">
