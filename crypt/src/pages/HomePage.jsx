@@ -73,16 +73,10 @@ export function HomePage() {
                         transition={{ duration: 0.6, delay: 0.3 }}
                         className="flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0"
                     >
-                        <Link to="/signup?role=teacher">
+                        <Link to="/signup">
                             <Button size="lg" className="h-12 w-full px-8 text-base sm:w-auto">
-                                <BrainCircuit className="mr-2 h-5 w-5" />
-                                {t('home.hero.teacherBtn')}
-                            </Button>
-                        </Link>
-                        <Link to="/signup?role=student">
-                            <Button variant="secondary" size="lg" className="h-12 w-full px-8 text-base sm:w-auto">
-                                <Library className="mr-2 h-5 w-5" />
-                                {t('home.hero.studentBtn')}
+                                <Sparkles className="mr-2 h-5 w-5" />
+                                {t('home.hero.getStarted') || "Get Started"}
                             </Button>
                         </Link>
                     </motion.div>
