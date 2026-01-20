@@ -2,7 +2,6 @@ import * as React from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "../lib/utils";
 import { Button } from "../components/ui/Button";
 import { ChatInput } from "../components/ui/ChatInput";
 import { MessageBubble } from "../components/ui/MessageBubble";
@@ -15,15 +14,18 @@ import {
   X,
   User,
   Search,
-  MessageSquarePlus
+  MessageSquarePlus,
 } from "lucide-react";
-import { MdSearch } from "react-icons/md";
 
-const MOCK_MESSAGES = [
+/* =========================
+   INITIAL DATA
+========================= */
+const INITIAL_MESSAGES = [
   {
     role: "assistant",
-    content: "Hello! I am Asvix, your academic assistant. How can I help you today?",
-    timestamp: "10:00 AM",
+    content:
+      "Hello! I am Asvix, your academic assistant. How can I help you today?",
+    timestamp: "Now",
   },
 ];
 
@@ -37,25 +39,36 @@ export function ChatPage() {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const urlMode = searchParams.get("mode");
 
   const user = JSON.parse(localStorage.getItem("user") || "null");
-  const isTeacher = user?.role === "teacher";
   const isGuest = !user;
 
-  const [messages, setMessages] = React.useState(MOCK_MESSAGES);
+  const [messages, setMessages] = React.useState(INITIAL_MESSAGES);
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isSearchActive, setIsSearchActive] = React.useState(false);
 
+  /* ================= SEND ================= */
   const handleSend = (text) => {
     if (isGuest && messages.length >= 20) return;
 
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text, timestamp: "Now" },
-      { role: "assistant", content: "Here is the explanation for your question.", timestamp: "Now" },
+      {
+        role: "assistant",
+        content: "Here is the explanation for your question.",
+        timestamp: "Now",
+      },
     ]);
+  };
+
+  /* ================= NEW CHAT ================= */
+  const handleNewChat = () => {
+    setMessages(INITIAL_MESSAGES);
+    setSearchQuery("");
+    setIsSearchActive(false);
+    setIsSidebarOpen(false);
   };
 
   const filteredHistory = MOCK_HISTORY.filter((item) =>
@@ -64,10 +77,12 @@ export function ChatPage() {
 
   /* ================= SIDEBAR ================= */
   const SidebarContent = () => (
-    <>
-      {/* Header */}
+    <div className="flex h-full flex-col">
       <div className="flex h-16 items-center justify-between border-b px-6">
-        <Link to="/dashboard" className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+        >
           <ArrowLeft className="h-4 w-4" />
           Dashboard
         </Link>
@@ -76,9 +91,11 @@ export function ChatPage() {
         </button>
       </div>
 
-      {/* Actions */}
       <div className="px-4 py-4 space-y-2">
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-accent/10">
+        <button
+          onClick={handleNewChat}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-accent/10"
+        >
           <MessageSquarePlus className="h-4 w-4" />
           New Chat
         </button>
@@ -101,37 +118,23 @@ export function ChatPage() {
         )}
       </div>
 
-      {/* ===== IMPROVED CHAT HISTORY ===== */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {/* Section header */}
-        <div className="mb-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Chat History
-          </h3>
-          <div className="mt-2 h-px bg-border" />
-        </div>
-
-        {/* History list */}
+        <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+          Chat History
+        </h3>
         <div className="space-y-1">
-          {filteredHistory.length > 0 ? (
-            filteredHistory.map((item) => (
-              <button
-                key={item.id}
-                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent/10"
-              >
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{item.title}</span>
-              </button>
-            ))
-          ) : (
-            <p className="text-xs text-muted-foreground py-4">
-              No conversations found
-            </p>
-          )}
+          {filteredHistory.map((item) => (
+            <button
+              key={item.id}
+              className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent/10"
+            >
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">{item.title}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* User */}
       <div
         onClick={() => navigate("/profile")}
         className="border-t px-4 py-4 flex items-center gap-3 cursor-pointer hover:bg-accent/10"
@@ -139,14 +142,17 @@ export function ChatPage() {
         <div className="h-9 w-9 rounded-full bg-accent/20 flex items-center justify-center">
           <User className="h-4 w-4" />
         </div>
-        <div className="truncate">
+        <div>
           <p className="text-sm font-medium">{user?.name || "Guest User"}</p>
-          <p className="text-xs text-muted-foreground">{user?.role || "Visitor"}</p>
+          <p className="text-xs text-muted-foreground">
+            {user?.role || "Visitor"}
+          </p>
         </div>
       </div>
-    </>
+    </div>
   );
 
+  /* ================= MAIN ================= */
   return (
     <PageTransition className="relative flex h-screen bg-background-base">
       <AnimatePresence>
@@ -168,31 +174,41 @@ export function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* Chat */}
+      {/* CHAT AREA */}
       <div className="flex flex-1 flex-col">
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="mx-auto max-w-3xl space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="mx-auto max-w-6xl space-y-3">
             {messages.map((msg, i) => (
-              <MessageBubble key={i} message={msg} />
+              <div
+                key={i}
+                className={`flex ${
+                  msg.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {/* 🔥 COMPACT CHATGPT SIZE */}
+                <div className="max-w-[48%] text-sm leading-relaxed">
+                  <MessageBubble message={msg} />
+                </div>
+              </div>
             ))}
           </div>
         </div>
 
-        <div className="fixed bottom-0 w-full pb-6">
-          <div className="mx-auto max-w-3xl px-4">
+        {/* INPUT */}
+        <div className="fixed bottom-0 w-full border-t bg-background-base">
+          <div className="mx-auto max-w-6xl px-6 py-3">
             <ChatInput onSend={handleSend} placeholder="Send a message…" />
           </div>
         </div>
       </div>
 
-      {/* Plus button */}
       {!isSidebarOpen && (
         <Button
           size="icon"
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed bottom-24 left-4 h-12 w-12 rounded-full"
+          className="fixed bottom-24 left-6 h-11 w-11 rounded-full"
         >
-          <Plus className="h-6 w-6" />
+          <Plus className="h-5 w-5" />
         </Button>
       )}
     </PageTransition>
