@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
@@ -9,14 +9,11 @@ import api from "../../lib/api";
 
 export function SignupPage() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-    const initialRole = searchParams.get("role") === "teacher" ? "teacher" : "student";
 
     const [formData, setFormData] = useState({
         name: "",
         email: "",
         password: "",
-        role: initialRole
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -26,9 +23,14 @@ export function SignupPage() {
         setLoading(true);
         setError(null);
         try {
-            const { data } = await api.post('/auth/register', formData);
+            // Add default role 'student' if not provided
+            const dataToSend = {
+                ...formData,
+                role: 'student'
+            };
+            const { data } = await api.post('/auth/register', dataToSend);
             localStorage.setItem("user", JSON.stringify(data));
-            navigate(data.role === 'teacher' ? '/dashboard?mode=teacher' : '/dashboard?mode=student');
+            navigate('/dashboard');
         } catch (err) {
             setError(err.response?.data?.message || "Registration failed");
         } finally {
@@ -47,7 +49,7 @@ export function SignupPage() {
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
                     <p className="text-sm text-foreground-muted">
-                        Choose your role to get started with Asvix
+                        Get started with your free account
                     </p>
                 </div>
 
@@ -85,23 +87,6 @@ export function SignupPage() {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             required
                         />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-2">
-                        <div
-                            onClick={() => setFormData({ ...formData, role: 'teacher' })}
-                            className={`h-20 rounded-lg border flex flex-col items-center justify-center cursor-pointer transition-all ${formData.role === 'teacher' ? 'border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-[#0a0a0c]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
-                        >
-                            <span className="font-semibold text-accent">Teacher</span>
-                            <span className="text-[10px] text-foreground-muted mt-1">For Educators</span>
-                        </div>
-                        <div
-                            onClick={() => setFormData({ ...formData, role: 'student' })}
-                            className={`h-20 rounded-lg border flex flex-col items-center justify-center cursor-pointer transition-all ${formData.role === 'student' ? 'border-white bg-white/10 ring-2 ring-white ring-offset-2 ring-offset-[#0a0a0c]' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
-                        >
-                            <span className="font-semibold text-foreground">Student</span>
-                            <span className="text-[10px] text-foreground-muted mt-1">For Learners</span>
-                        </div>
                     </div>
 
                     <Button className="w-full" size="lg" disabled={loading}>

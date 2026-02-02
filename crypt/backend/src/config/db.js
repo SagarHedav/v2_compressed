@@ -1,28 +1,40 @@
-const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const admin = require('firebase-admin');
+const path = require('path');
 
-const connectDB = async () => {
+let db;
+
+const initializeFirebase = () => {
     try {
-        // Try connecting to the provided URI first
-        if (process.env.MONGO_URI && !process.env.MONGO_URI.includes('<db_password>')) {
-            const conn = await mongoose.connect(process.env.MONGO_URI);
-            console.log(`MongoDB Connected: ${conn.connection.host}`);
-            return;
+        // Check if Firebase is already initialized
+        if (admin.apps.length > 0) {
+            db = admin.firestore();
+            console.log('Firebase already initialized');
+            return db;
         }
 
-        // Fallback to In-Memory Database
-        console.log("External MongoDB not configured or failed. Starting In-Memory MongoDB...");
-        const mongod = await MongoMemoryServer.create();
-        const uri = mongod.getUri();
+        // Initialize Firebase with service account
+        const serviceAccount = require(path.join(__dirname, '../../firebase-key.json'));
 
-        const conn = await mongoose.connect(uri);
-        console.log(`In-Memory MongoDB Connected: ${conn.connection.host}`);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+        });
+
+        db = admin.firestore();
+        console.log('Firebase initialized successfully');
+        return db;
 
     } catch (error) {
-        console.error(`Error: ${error.message}`);
-        // If even in-memory fails, then exit
+        console.error(`Firebase initialization error: ${error.message}`);
         process.exit(1);
     }
 };
 
-module.exports = connectDB;
+const getFirestore = () => {
+    if (!db) {
+        initializeFirebase();
+    }
+    return db;
+};
+
+module.exports = { initializeFirebase, getFirestore };

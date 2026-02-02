@@ -17,32 +17,42 @@ exports.register = async (req, res) => {
         console.log('Register Body:', req.body); // DEBUG
         const { name, email, password, role } = req.body;
 
+        // Validate user data
+        const errors = User.validate({ name, email, password, role });
+        if (errors.length > 0) {
+            return res.status(400).json({ message: errors.join(', ') });
+        }
+
         // Check if user exists
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        // Create user
-        const user = await User.create({
+        // Create user instance
+        const user = new User({
             name,
             email,
             password,
-            role // 'student' or 'teacher'
+            role: role || 'student'
         });
 
-        if (user) {
-            res.status(201).json({
-                _id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                token: generateToken(user.id),
-            });
-        } else {
-            res.status(400).json({ message: 'Invalid user data' });
-        }
+        // Hash password
+        await user.hashPassword();
+
+        // Save user to Firestore
+        await user.save();
+
+        res.status(201).json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            token: generateToken(user.id),
+        });
+
     } catch (error) {
+        console.error('Registration error:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -54,12 +64,24 @@ exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Check for user email
-        const user = await User.findOne({ email }).select('+password');
+        // Validation
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Please provide email and password' });
+        }
 
-        if (user && (await bcrypt.compare(password, user.password))) {
+        // Check for user
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        // Check if password matches
+        const isPasswordMatch = await user.matchPassword(password);
+
+        if (isPasswordMatch) {
             res.json({
-                _id: user.id,
+                id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
@@ -69,6 +91,7 @@ exports.login = async (req, res) => {
             res.status(401).json({ message: 'Invalid credentials' });
         }
     } catch (error) {
+        console.error('Login error:', error);
         res.status(500).json({ message: error.message });
     }
 };
