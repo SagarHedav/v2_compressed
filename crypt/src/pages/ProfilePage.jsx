@@ -4,9 +4,10 @@ import { useUI } from "../context/UIContext";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
-import { Link, useNavigate } from "react-router-dom";
-import { User, Bell, Shield, LogOut, Settings, ChevronDown, Lock, Smartphone, Laptop, Check, Mail, Eye, EyeOff, Download, Trash2, AlertTriangle, Palette, Moon, Sun, Zap, FileText, FileJson } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, LogOut, CreditCard, MapPin, Globe, Smile , Bell, Shield , Settings, ChevronDown, Lock, Smartphone, Laptop, Check, Mail, Eye, EyeOff, Download, Trash2, AlertTriangle, Palette, Moon, Sun, Zap,  FileText, FileJson   } from "lucide-react";
 import { translations } from "../lib/translations";
+import api from "../lib/api";
 
 export function ProfilePage() {
     const { language, setLanguage, t } = useLanguage();
@@ -111,6 +112,74 @@ export function ProfilePage() {
         </div>
     );
 
+    // Backend State & Logic
+    const [loading, setLoading] = useState(false);
+    const [userData, setUserData] = useState(null);
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        preferredName: "",
+        age: "",
+        gender: "",
+        location: "",
+        primaryLanguage: "en",
+        profilePhoto: "",
+        preferences: {
+            tone: "neutral"
+        }
+    });
+
+    useEffect(() => {
+        fetchUserData();
+    }, []);
+
+    const fetchUserData = async () => {
+        try {
+            const { data } = await api.get('/auth/me');
+            setUserData(data);
+            setFormData({
+                name: data.name || "",
+                email: data.email || "",
+                preferredName: data.preferredName || "",
+                age: data.age || "",
+                gender: data.gender || "",
+                location: data.location || "",
+                primaryLanguage: data.primaryLanguage || "en",
+                profilePhoto: data.profilePhoto || "",
+                preferences: {
+                    tone: data.preferences?.tone || "neutral"
+                }
+            });
+            // Also sync app language if user has one saved
+            if (data.primaryLanguage && translations[data.primaryLanguage]) {
+                setLanguage(data.primaryLanguage);
+            }
+        } catch (error) {
+            console.error("Failed to fetch user data", error);
+        }
+    };
+
+    const handleUpdateProfile = async () => {
+        setLoading(true);
+        try {
+            // Update formData with current app language before saving
+            const updatedData = {
+                ...formData,
+                primaryLanguage: language
+            };
+
+            const { data } = await api.put('/auth/profile', updatedData);
+            setUserData(data);
+            localStorage.setItem("user", JSON.stringify(data));
+            alert(t('profile.saveChanges') + " Success!"); // Simple feedback
+        } catch (error) {
+            console.error("Failed to update profile", error);
+            alert("Failed to update profile");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSignOut = () => {
         localStorage.removeItem("user");
         localStorage.removeItem("token");
@@ -187,6 +256,10 @@ export function ProfilePage() {
                     <span className="font-medium">Changes saved successfully!</span>
                 </div>
             )}
+    if (!userData && !formData.email) return <div className="p-8 text-center">Loading...</div>;
+
+    return (
+        <div className="mx-auto max-w-4xl space-y-8 pb-12">
             <h1 className="text-3xl font-semibold text-foreground">{t('profile.settings')}</h1>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-12">

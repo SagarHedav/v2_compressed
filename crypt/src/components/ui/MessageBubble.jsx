@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { cn } from "../../lib/utils";
-import { MdPerson, MdSmartToy, MdVolumeUp } from "react-icons/md";
+import { MdPerson, MdSmartToy, MdVolumeUp, MdThumbUp, MdThumbDown } from "react-icons/md";
 import { motion } from "framer-motion";
 
 export function MessageBubble({ message }) {
     const isUser = message.role === "user";
+    const [feedback, setFeedback] = useState(null);
 
     const handleSpeak = () => {
         if ("speechSynthesis" in window) {

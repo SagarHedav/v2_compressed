@@ -9,6 +9,7 @@ import api from "../../lib/api";
 
 export function SignupPage() {
     const navigate = useNavigate();
+    const initialRole = "student"; // Default for legacy/backend compatibility if needed
 
     const [formData, setFormData] = useState({
         name: "",
