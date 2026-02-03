@@ -22,6 +22,7 @@ app.use(helmet());             // Security headers
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/roadmaps', require('./routes/roadmapRoutes'));
 
 // Serve Static Uploads
 app.use('/uploads', express.static('uploads'));

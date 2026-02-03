@@ -84,7 +84,7 @@ exports.login = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                token: generateToken(user._id),
+                token: generateToken(user.id),
             });
         } else {
             res.status(401).json({ message: 'Invalid credentials' });
@@ -100,7 +100,7 @@ exports.login = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -119,7 +119,7 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
     try {
-        let user = await User.findById(req.user._id);
+        let user = await User.findById(req.user.id);
 
         if (user) {
             const updates = {};

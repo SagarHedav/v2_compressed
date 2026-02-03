@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 export function MessageBubble({ message }) {
     const isUser = message.role === "user";
     const [feedback, setFeedback] = useState(null);
+    const [isHovered, setIsHovered] = useState(false);
 
     const handleSpeak = () => {
         if ("speechSynthesis" in window) {
@@ -20,12 +21,25 @@ export function MessageBubble({ message }) {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="w-full flex justify-center"
+            className={cn(
+                "w-full flex",
+                isUser ? "justify-end" : "justify-start"
+            )}
         >
-            {/* CENTERED CONTENT COLUMN (ChatGPT style) */}
-            <div className="w-full max-w-[760px] px-2">
+            {/* Message container with hover area */}
+            <div
+                className={cn(
+                    "max-w-[75%] md:max-w-[60%]",
+                    isUser ? "text-right" : "text-left"
+                )}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
                 {/* ROLE LABEL */}
-                <div className="mb-1 flex items-center gap-2 text-xs text-foreground-muted">
+                <div className={cn(
+                    "mb-1 flex items-center gap-2 text-xs text-foreground-muted",
+                    isUser ? "justify-end" : "justify-start"
+                )}>
                     {isUser ? (
                         <>
                             <MdPerson size={14} />
@@ -39,20 +53,60 @@ export function MessageBubble({ message }) {
                     )}
                 </div>
 
-                {/* MESSAGE BODY */}
-                <div
-                    className={cn(
-                        "rounded-lg px-4 py-3 text-[15px] leading-relaxed",
-                        isUser
-                            ? "bg-accent text-white"
-                            : "bg-white border border-black/5 text-foreground dark:bg-[#1a1a1f] dark:border-white/5"
+                {/* MESSAGE BODY WITH SIDE ACTIONS */}
+                <div className={cn(
+                    "flex items-center gap-2",
+                    isUser ? "flex-row-reverse" : "flex-row"
+                )}>
+                    {/* Message Bubble */}
+                    <div
+                        className={cn(
+                            "rounded-xl px-4 py-3 text-[15px] leading-relaxed",
+                            isUser
+                                ? "bg-accent text-white rounded-br-md"
+                                : "bg-white border border-black/5 text-foreground dark:bg-[#1a1a1f] dark:border-white/5 rounded-bl-md"
+                        )}
+                    >
+                        {message.content}
+                    </div>
+
+                    {/* Side Action Buttons - Only for bot messages, show on hover */}
+                    {!isUser && (
+                        <div
+                            className={cn(
+                                "flex items-center gap-1 transition-opacity duration-200",
+                                isHovered || feedback ? "opacity-100" : "opacity-0"
+                            )}
+                        >
+                            <button
+                                onClick={() => setFeedback(feedback === 'like' ? null : 'like')}
+                                className={cn(
+                                    "p-1.5 rounded-full hover:bg-green-500/10 transition-colors",
+                                    feedback === 'like' ? "text-green-500 bg-green-500/10" : "text-foreground-muted hover:text-green-500"
+                                )}
+                                title="Good response"
+                            >
+                                <MdThumbUp size={14} />
+                            </button>
+                            <button
+                                onClick={() => setFeedback(feedback === 'dislike' ? null : 'dislike')}
+                                className={cn(
+                                    "p-1.5 rounded-full hover:bg-red-500/10 transition-colors",
+                                    feedback === 'dislike' ? "text-red-500 bg-red-500/10" : "text-foreground-muted hover:text-red-500"
+                                )}
+                                title="Bad response"
+                            >
+                                <MdThumbDown size={14} />
+                            </button>
+                        </div>
                     )}
-                >
-                    {message.content}
                 </div>
 
                 {/* FOOTER */}
-                <div className="mt-1 flex items-center justify-between text-[11px] text-foreground-muted">
+                <div className={cn(
+                    "mt-1 flex items-center text-[11px] text-foreground-muted",
+                    isUser ? "justify-end" : "justify-start gap-4"
+                )}>
                     <span>{message.timestamp}</span>
 
                     {!isUser && (

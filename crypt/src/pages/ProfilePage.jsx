@@ -4,8 +4,8 @@ import { useUI } from "../context/UIContext";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
-import { useNavigate } from "react-router-dom";
-import { User, LogOut, CreditCard, MapPin, Globe, Smile , Bell, Shield , Settings, ChevronDown, Lock, Smartphone, Laptop, Check, Mail, Eye, EyeOff, Download, Trash2, AlertTriangle, Palette, Moon, Sun, Zap,  FileText, FileJson   } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { User, LogOut, CreditCard, MapPin, Globe, Smile, Bell, Shield, Settings, ChevronDown, Lock, Smartphone, Laptop, Check, Mail, Eye, EyeOff, Download, Trash2, AlertTriangle, Palette, Moon, Sun, Zap, FileText, FileJson } from "lucide-react";
 import { translations } from "../lib/translations";
 import api from "../lib/api";
 
@@ -248,6 +248,8 @@ export function ProfilePage() {
         setProfileData(prev => ({ ...prev, [name]: value }));
     };
 
+    if (!userData && !formData.email) return <div className="p-8 text-center">Loading...</div>;
+
     return (
         <div className="mx-auto max-w-4xl space-y-8 pb-12 relative">
             {saveStatus === 'success' && (
@@ -256,10 +258,7 @@ export function ProfilePage() {
                     <span className="font-medium">Changes saved successfully!</span>
                 </div>
             )}
-    if (!userData && !formData.email) return <div className="p-8 text-center">Loading...</div>;
 
-    return (
-        <div className="mx-auto max-w-4xl space-y-8 pb-12">
             <h1 className="text-3xl font-semibold text-foreground">{t('profile.settings')}</h1>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
