@@ -1,6 +1,43 @@
-.venv/ 
-**/.venv/ 
-.env 
-env.txt 
-__pycache__/ 
-*.pyc 
+# Dependencies
+node_modules/
+venv/
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment files (IMPORTANT: contains secrets)
+.env
+.env.local
+.env.production
+.env.development
+env.txt
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cache
+.cache/
+.huggingface/
+.qodo/
+
+# OS files
+Thumbs.db
+
+# Lint outputs (temporary)
+*_output.txt
+*_lint.json

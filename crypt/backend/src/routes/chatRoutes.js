@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const { protect } = require('../middleware/authMiddleware');
+const { getSessions, getSession, saveSession, deleteSession, clearAllSessions } = require('../controllers/chatController');
 
 // Configure Multer Storage
 const storage = multer.diskStorage({
@@ -35,9 +36,6 @@ router.post('/upload', protect, upload.single('file'), (req, res) => {
     }
 
     // Construct URL
-    // Assuming server runs on process.env.PORT or 5001
-    // Ideally use full base URL from env, but relative path works if proxy/cors set up
-    // For now returning relative path that frontend can prepend base URL to
     const filePath = `/uploads/${req.file.filename}`;
 
     res.json({
@@ -48,5 +46,15 @@ router.post('/upload', protect, upload.single('file'), (req, res) => {
         size: req.file.size
     });
 });
+
+// Session Routes
+router.route('/sessions')
+    .get(protect, getSessions)
+    .post(protect, saveSession)
+    .delete(protect, clearAllSessions);
+
+router.route('/sessions/:id')
+    .get(protect, getSession)
+    .delete(protect, deleteSession);
 
 module.exports = router;

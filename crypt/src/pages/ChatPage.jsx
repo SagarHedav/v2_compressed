@@ -10,16 +10,16 @@ import { ChatInput } from "../components/ui/ChatInput";
 import { MessageBubble } from "../components/ui/MessageBubble";
 import { PageTransition } from "../components/ui/PageTransition";
 import { VoiceOverlay } from "../components/ui/VoiceOverlay";
-import { ArrowLeft, BookOpen, ChevronRight, FileText, Layout, Lightbulb, MessageSquare, MoreHorizontal, Settings, Share, CheckCircle, Map } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, FileText, Layout, Lightbulb, MessageSquare, MoreHorizontal, Settings, Share, CheckCircle, Map, Trash2, AlertCircle, Loader2, Wifi, WifiOff, Plus } from "lucide-react";
 import { MdSearch } from "react-icons/md";
+import chatbotApi from "../lib/chatbotApi";
+import api from "../lib/api";
 
-const MOCK_MESSAGES = [
-    {
-        role: "assistant",
-        content: "Hello! I am Asvix, your academic assistant. How can I help you today?",
-        timestamp: "10:00 AM",
-    },
-];
+const INITIAL_MESSAGE = {
+    role: "assistant",
+    content: "Hello! I am Asvix, your academic assistant. How can I help you today?",
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+};
 
 export function ChatPage() {
     const { t } = useLanguage();
@@ -44,7 +44,10 @@ export function ChatPage() {
     const isTeacher = user?.role === "teacher";
     const isGuest = !user;
 
-    const [messages, setMessages] = React.useState(MOCK_MESSAGES);
+    const [messages, setMessages] = React.useState([INITIAL_MESSAGE]);
+    const [sessions, setSessions] = React.useState([]);
+    const [currentSessionId, setCurrentSessionId] = React.useState(null);
+
     // Initialize view based on URL param or default
     const [teacherView, setTeacherView] = React.useState(
         urlMode === "classroom-plan" ? "classroom_plan" :
@@ -56,30 +59,168 @@ export function ChatPage() {
     const [showLimitModal, setShowLimitModal] = React.useState(false);
     const [isVoiceMode, setIsVoiceMode] = React.useState(false);
 
-    const handleSend = (text) => {
+    // API integration states
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [error, setError] = React.useState(null);
+    const [isConnected, setIsConnected] = React.useState(false);
+    const [isCheckingConnection, setIsCheckingConnection] = React.useState(true);
+    const messagesEndRef = React.useRef(null);
+
+    // Check backend health and fetch sessions on mount
+    React.useEffect(() => {
+        const initChat = async () => {
+            // Check AI Backend connection
+            try {
+                await chatbotApi.checkHealth();
+                setIsConnected(true);
+            } catch (err) {
+                console.error("Backend not available:", err);
+                setIsConnected(false);
+            } finally {
+                setIsCheckingConnection(false);
+            }
+
+            // Fetch Sessions from Database (if logged in)
+            if (!isGuest) {
+                try {
+                    const res = await api.get('/chat/sessions');
+                    if (res.data && res.data.length > 0) {
+                        setSessions(res.data);
+                        // Load the most recent session by default
+                        const latestSession = res.data[0];
+                        setCurrentSessionId(latestSession.id);
+                        setMessages(latestSession.messages);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch sessions from DB:", err);
+                }
+            }
+        };
+        initChat();
+    }, [isGuest]);
+
+    // Scroll to bottom when messages change
+    React.useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    // Clear all chat history
+    const handleClearHistory = async () => {
+        if (!window.confirm("Are you sure you want to clear all chat history?")) return;
+
+        try {
+            // Clear from AI Backend memory (Python)
+            await chatbotApi.clearHistory();
+
+            // Clear all from Database (Node.js/Firestore)
+            if (!isGuest) {
+                await api.delete('/chat/sessions');
+            }
+
+            setMessages([INITIAL_MESSAGE]);
+            setSessions([]);
+            setCurrentSessionId(null);
+            setError(null);
+        } catch (err) {
+            console.error("Failed to clear history:", err);
+            setError("Failed to clear chat history");
+        }
+    };
+
+    const handleNewChat = async () => {
+        await chatbotApi.clearHistory();
+        setMessages([INITIAL_MESSAGE]);
+        setCurrentSessionId(null);
+        setError(null);
+    };
+
+    const handleSelectSession = async (sessionId) => {
+        const session = sessions.find(s => s.id === sessionId);
+        if (session) {
+            setCurrentSessionId(session.id);
+            setMessages(session.messages);
+            setError(null);
+            // Optionally: Tell AI backend to reset context for selected history
+            await chatbotApi.clearHistory();
+        }
+    };
+
+    const handleSend = async (text) => {
         // GUEST LIMIT CHECK
         if (isGuest && messages.length >= 10) {
             setShowLimitModal(true);
             return;
         }
 
-        const newMsg = {
+        // Clear any previous error
+        setError(null);
+
+        const userMsg = {
             role: "user",
             content: text,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
-        setMessages((prev) => [...prev, newMsg]);
+        setMessages((prev) => [...prev, userMsg]);
 
-        // Simulate AI response
-        setTimeout(() => {
-            setMessages((prev) => [...prev, {
+        // Call the real API
+        setIsLoading(true);
+        try {
+            const response = await chatbotApi.sendMessage(text);
+            const assistantMsg = {
                 role: "assistant",
-                content: isTeacher
-                    ? "I have analyzed the topic. Here is a suggested lesson plan structure including prerequisites and assessment strategies."
-                    : "Here is the explanation for your question, essentially breaking down the core concepts.",
+                content: response.answer,
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            }]);
-        }, 1000);
+            };
+
+            const updatedMessages = [...messages, userMsg, assistantMsg];
+            setMessages(updatedMessages);
+
+            // Save to Database (Node.js/Firestore)
+            if (!isGuest) {
+                try {
+                    const res = await api.post('/chat/sessions', {
+                        sessionId: currentSessionId,
+                        messages: updatedMessages
+                    });
+
+                    if (res.data) {
+                        // Update current sessionId if it was new
+                        if (!currentSessionId) {
+                            setCurrentSessionId(res.data.id);
+                            setSessions(prev => [res.data, ...prev]);
+                        } else {
+                            // Update existing session in the list
+                            setSessions(prev => prev.map(s => s.id === res.data.id ? res.data : s));
+                        }
+                    }
+                } catch (dbErr) {
+                    console.error("Failed to save history to DB:", dbErr);
+                }
+            }
+        } catch (err) {
+            console.error("API Error:", err);
+            const errorMessage = err.response?.data?.detail || err.message || "Failed to get response";
+            setError(errorMessage);
+            // Add error message to chat
+            const updatedWithErr = [...messages, userMsg, {
+                role: "assistant",
+                content: `Sorry, I encountered an error: ${errorMessage}. Please try again.`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isError: true,
+            }];
+            setMessages(updatedWithErr);
+
+            // Save error message state to DB too? 
+            // Usually better to only save successful exchanges, but persistent error state can be helpful.
+            if (!isGuest) {
+                api.post('/chat/sessions', {
+                    sessionId: currentSessionId,
+                    messages: updatedWithErr
+                }).catch(() => { });
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Theme Toggle Logic
@@ -134,14 +275,63 @@ export function ChatPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    <div className="space-y-2">
+                    {/* Connection Status */}
+                    <div className="flex items-center justify-between px-2 py-2 rounded-lg bg-accent/5 dark:bg-white/5">
+                        <div className="flex items-center gap-2">
+                            {isCheckingConnection ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-foreground-muted" />
+                            ) : isConnected ? (
+                                <Wifi className="h-4 w-4 text-green-500" />
+                            ) : (
+                                <WifiOff className="h-4 w-4 text-red-500" />
+                            )}
+                            <span className="text-xs text-foreground-muted">
+                                {isCheckingConnection ? "Connecting..." : isConnected ? "Connected" : "Offline"}
+                            </span>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClearHistory}
+                            className="h-8 px-2 text-foreground-muted hover:text-red-500"
+                            title="Clear chat history"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+
+                    <Button
+                        onClick={handleNewChat}
+                        className="w-full justify-start gap-2 bg-accent/10 text-accent hover:bg-accent/20 border-accent/20"
+                        variant="outline"
+                    >
+                        <Plus className="h-4 w-4" />
+                        New Chat
+                    </Button>
+
+                    <div className="space-y-2 pt-2">
                         <h3 className="px-2 text-xs font-semibold text-foreground-muted uppercase tracking-wider">{t('chat.today')}</h3>
-                        {[1, 2].map((i) => (
-                            <button key={i} className="flex w-full items-center space-x-3 rounded-lg px-2 py-2 text-sm text-foreground hover:bg-accent/5 dark:hover:bg-white/5">
-                                <MessageSquare className="h-4 w-4" />
-                                <span className="truncate">Quantum Physics Basics</span>
-                            </button>
-                        ))}
+                        {sessions.length > 0 ? (
+                            sessions.map((session) => (
+                                <button
+                                    key={session.id}
+                                    onClick={() => handleSelectSession(session.id)}
+                                    className={cn(
+                                        "flex w-full items-center space-x-3 rounded-lg px-2 py-2 text-sm transition-all",
+                                        currentSessionId === session.id
+                                            ? "bg-accent/10 text-accent font-medium ring-1 ring-accent/20"
+                                            : "text-foreground hover:bg-accent/5 dark:hover:bg-white/5"
+                                    )}
+                                >
+                                    <MessageSquare className={cn("h-4 w-4", currentSessionId === session.id ? "text-accent" : "text-foreground-muted")} />
+                                    <span className="truncate flex-1 text-left">{session.title || "Quantum Physics Basics"}</span>
+                                </button>
+                            ))
+                        ) : (
+                            <div className="px-2 py-4 text-center rounded-lg border border-dashed border-border-base dark:border-white/5">
+                                <p className="text-xs text-foreground-muted">No recent chats. Start a new one!</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -248,7 +438,31 @@ export function ChatPage() {
                                 message={msg}
                             />
                         ))}
-                        <div className="h-24"></div> {/* Spacer for bottom input */}
+
+                        {/* Loading Indicator */}
+                        {isLoading && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex items-center gap-3 p-4"
+                            >
+                                <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center">
+                                    <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-sm text-foreground-muted">Thinking</span>
+                                    <motion.span
+                                        animate={{ opacity: [0.2, 1, 0.2] }}
+                                        transition={{ repeat: Infinity, duration: 1.5 }}
+                                        className="text-sm text-foreground-muted"
+                                    >
+                                        ...
+                                    </motion.span>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        <div ref={messagesEndRef} className="h-24"></div> {/* Spacer for bottom input */}
                     </div>
 
                     {/* Input Area */}
@@ -329,8 +543,8 @@ export function ChatPage() {
 
                             <ChatInput
                                 onSend={handleSend}
-                                placeholder={t('chat.inputPlaceholder')}
-                                disabled={false}
+                                placeholder={isConnected ? t('chat.inputPlaceholder') : "Backend not connected..."}
+                                disabled={isLoading || !isConnected}
                                 onVoiceToggle={() => setIsVoiceMode(true)}
                             />
                             <p className="mt-2 text-center text-[10px] text-foreground-subtle">
