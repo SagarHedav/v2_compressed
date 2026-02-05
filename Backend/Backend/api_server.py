@@ -73,8 +73,9 @@ async def startup_event():
         chatbot = PDFChatbot()
         print("✅ Chatbot initialized successfully")
     except Exception as e:
-        print(f"❌ Error initializing chatbot: {e}")
-        raise
+        print(f"⚠️ Warning: Chatbot initialization failed: {e}")
+        print("The API will start but /chat endpoints won't work until chatbot is initialized")
+        chatbot = None
 
 # Health check endpoint
 @app.get("/health", response_model=HealthResponse)
