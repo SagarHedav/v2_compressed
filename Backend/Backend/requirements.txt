@@ -1,15 +1,15 @@
-# Production requirements
+# Production requirements for Render deployment
 groq==0.4.2
-pinecone
+pinecone-client
 neo4j==5.17.0
 PyPDF2==3.0.1
 python-dotenv==1.0.0
 numpy==1.26.4
-tiktoken==0.6.0
+tiktoken==0.7.0
 sentence-transformers==2.5.1
-torch
+torch --index-url https://download.pytorch.org/whl/cpu
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic>=2.7.0
 httpx==0.25.2
 gunicorn
