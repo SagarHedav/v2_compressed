@@ -12,7 +12,7 @@ export const RoadmapProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const API_URL = 'http://localhost:5001/api/roadmaps'; // Hardcoded for now, should come from env
+    const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/roadmaps`;
 
     const token = localStorage.getItem('token'); // Simplistic token retrieval
     const config = {
