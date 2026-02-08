@@ -16,18 +16,43 @@ const initializeFirebase = () => {
         let serviceAccount;
         const keyFilePath = path.join(__dirname, '../../firebase-key.json');
 
-        // Check if firebase-key.json exists (local development)
-        if (fs.existsSync(keyFilePath)) {
-            console.log('Using firebase-key.json for authentication');
-            serviceAccount = require(keyFilePath);
-        } 
-        // Use environment variables (production/Render)
-        else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
-            console.log('Using environment variables for Firebase authentication');
+        // Log environment for debugging
+        console.log('NODE_ENV:', process.env.NODE_ENV);
+        console.log('Checking for firebase-key.json at:', keyFilePath);
+        console.log('File exists:', fs.existsSync(keyFilePath));
+        console.log('FIREBASE_PROJECT_ID set:', !!process.env.FIREBASE_PROJECT_ID);
+
+        // Prefer environment variables in production
+        if (process.env.NODE_ENV === 'production' && process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+            console.log('Using environment variables for Firebase authentication (production)');
+            // Handle both escaped and unescaped newlines
+            let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+            if (privateKey.includes('\\n')) {
+                privateKey = privateKey.replace(/\\n/g, '\n');
+            }
             serviceAccount = {
                 type: 'service_account',
                 project_id: process.env.FIREBASE_PROJECT_ID,
-                private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+                private_key: privateKey,
+                client_email: process.env.FIREBASE_CLIENT_EMAIL
+            };
+        }
+        // Check if firebase-key.json exists (local development)
+        else if (fs.existsSync(keyFilePath)) {
+            console.log('Using firebase-key.json for authentication');
+            serviceAccount = require(keyFilePath);
+        }
+        // Fallback to environment variables
+        else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+            console.log('Using environment variables for Firebase authentication');
+            let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+            if (privateKey.includes('\\n')) {
+                privateKey = privateKey.replace(/\\n/g, '\n');
+            }
+            serviceAccount = {
+                type: 'service_account',
+                project_id: process.env.FIREBASE_PROJECT_ID,
+                private_key: privateKey,
                 client_email: process.env.FIREBASE_CLIENT_EMAIL
             };
         } else {
@@ -45,6 +70,7 @@ const initializeFirebase = () => {
 
     } catch (error) {
         console.error(`Firebase initialization error: ${error.message}`);
+        console.error('Full error:', error);
         process.exit(1);
     }
 };
