@@ -7,6 +7,10 @@ import axios from 'axios';
 
 const CHATBOT_API_URL = import.meta.env.VITE_CHATBOT_API_URL || 'http://localhost:8000';
 
+// Debug: log which API URL is being used
+console.log('CHATBOT_API_URL:', CHATBOT_API_URL);
+console.log('VITE_CHATBOT_API_URL env:', import.meta.env.VITE_CHATBOT_API_URL);
+
 const chatbotApi = axios.create({
     baseURL: CHATBOT_API_URL,
     headers: {
