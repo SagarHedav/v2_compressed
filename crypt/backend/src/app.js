@@ -15,15 +15,33 @@ const app = express();
 // Middleware
 app.use(express.json());       // Parse JSON body
 app.use(express.urlencoded({ extended: false })); // Parse URL-encoded body
-app.use(cors({
-    origin: [
-        'https://v2-compressed.vercel.app',
-        'https://sagarhedav-asvix-fastapi.hf.space',
-        'http://localhost:5173',
-        'http://localhost:3000'
-    ],
+
+// CORS configuration with dynamic origin matching
+const corsOptions = {
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            'https://v2-compressed.vercel.app',
+            'https://sagarhedav-asvix-fastapi.hf.space',
+            'http://localhost:5173',
+            'http://localhost:3000'
+        ];
+        // Allow requests with no origin (mobile apps, curl, etc)
+        if (!origin) return callback(null, true);
+        // Allow all Vercel preview deployments
+        if (origin.includes('vercel.app') || origin.includes('sagarhedavs-projects.vercel.app')) {
+            return callback(null, true);
+        }
+        // Allow explicitly listed origins
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        // Log and reject other origins
+        console.log('CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true
-}));               // Enable CORS
+};
+app.use(cors(corsOptions));    // Enable CORS
 app.use(helmet());             // Security headers
 
 // Routes
