@@ -19,7 +19,12 @@ app = FastAPI(
 # Add CORS middleware to allow frontend to call the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific frontend URL
+    allow_origins=[
+        "https://v2-compressed.vercel.app",
+        "https://v2-compressed-2.onrender.com",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -7,18 +7,15 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for caching
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Set environment variables
-ENV PORT=8080
+# Expose port 7860 (Hugging Face default)
+EXPOSE 7860
 
-# Expose port
-EXPOSE 8080
-
-# Run the application
-CMD exec gunicorn api_server:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
+# Run the FastAPI server
+CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "7860"]

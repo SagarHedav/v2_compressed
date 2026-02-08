@@ -15,7 +15,15 @@ const app = express();
 // Middleware
 app.use(express.json());       // Parse JSON body
 app.use(express.urlencoded({ extended: false })); // Parse URL-encoded body
-app.use(cors());               // Enable CORS
+app.use(cors({
+    origin: [
+        'https://v2-compressed.vercel.app',
+        'https://sagarhedav-asvix-fastapi.hf.space',
+        'http://localhost:5173',
+        'http://localhost:3000'
+    ],
+    credentials: true
+}));               // Enable CORS
 app.use(helmet());             // Security headers
 
 // Routes

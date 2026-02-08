@@ -1,113 +1,46 @@
-import os
-from dotenv import load_dotenv
-from chatbot import PDFChatbot
+# Firebase Functions Python entry point
+from firebase_functions import https_fn, options
+from firebase_admin import initialize_app
 
-load_dotenv()
+# Import the FastAPI app
+from api_server import app as fastapi_app
 
-def check_txt_processing():
-    """Check if TXT file has been processed"""
-    return os.path.exists("data/processed/txt_processed.flag")
+# Initialize Firebase Admin
+initialize_app()
 
-def print_detailed_sources(sources):
-    """Print sources with more detail for debugging"""
-    print("\n" + "="*70)
-    print("📚 SOURCES USED:")
-    print("="*70)
-    for i, source in enumerate(sources, 1):
-        print(f"\n{i}. Section: {source.get('full_section', 'Unknown')}")
-        print(f"   File: {source.get('source_file', 'N/A')}")
-        print(f"   Page: {source.get('page', 'N/A')}")
-        print(f"   Preview: {source.get('text', '')[:100]}...")
-    print("="*70)
+# Set function options for more memory and timeout
+options.set_global_options(
+    region=options.SupportedRegion.US_CENTRAL1,
+    memory=options.MemoryOption.GB_2,
+    timeout_sec=300,
+)
 
-def main():
-    print("="*60)
-    print("📖 Media Literacy Course Chatbot")
-    print("="*60)
+# Expose FastAPI as a Cloud Function
+@https_fn.on_request()
+def api(req: https_fn.Request) -> https_fn.Response:
+    """HTTP Cloud Function that serves the FastAPI app."""
+    from starlette.requests import Request as StarletteRequest
+    from starlette.testclient import TestClient
     
-    # Check if data has been processed
-    if not check_txt_processing():
-        print("\n❌ TXT file not processed yet!")
-        print("Please run: python process_txt_pipeline.py")
-        print("First, make sure your TXT files are in: data/txts/")
-        return
+    # Create test client for FastAPI
+    client = TestClient(fastapi_app)
     
-    print("✅ Using existing knowledge base...")
+    # Forward the request to FastAPI
+    headers = dict(req.headers)
     
-    # Initialize chatbot
-    try:
-        chatbot = PDFChatbot()
-    except Exception as e:
-        print(f"\n❌ Error initializing chatbot: {e}")
-        return
+    if req.method == "GET":
+        response = client.get(req.path, headers=headers)
+    elif req.method == "POST":
+        response = client.post(req.path, headers=headers, json=req.get_json(silent=True))
+    elif req.method == "PUT":
+        response = client.put(req.path, headers=headers, json=req.get_json(silent=True))
+    elif req.method == "DELETE":
+        response = client.delete(req.path, headers=headers)
+    else:
+        response = client.request(req.method, req.path, headers=headers)
     
-    # Interactive chat loop
-    print("\n" + "="*60)
-    print("💬 Chatbot Ready!")
-    print("="*60)
-    print("\nCommands:")
-    print("  • Type your question to get an answer")
-    print("  • Type 'sources' to see detailed source info from last answer")
-    print("  • Type 'clear' to clear conversation history")
-    print("  • Type 'quit' to exit")
-    print("="*60 + "\n")
-    
-    last_result = None
-    
-    while True:
-        try:
-            question = input("\n🎓 You: ").strip()
-            
-            if question.lower() == 'quit':
-                print("👋 Goodbye!")
-                break
-            
-            if question.lower() == 'clear':
-                chatbot.clear_history()
-                print("✅ Conversation history cleared!")
-                continue
-            
-            if question.lower() == 'sources' and last_result:
-                print_detailed_sources(last_result['sources'])
-                continue
-            
-            if not question:
-                continue
-            
-            print("\n🤔 Thinking...")
-            result = chatbot.ask_question(question)
-            last_result = result
-            
-            # Print answer
-            print("\n" + "="*70)
-            print("🤖 Assistant:")
-            print("="*70)
-            print(result['answer'])
-            print("="*70)
-            
-            # Show brief source summary
-            if result['sources']:
-                print(f"\n📚 Answer based on {len(result['sources'])} section(s)")
-                print("   Type 'sources' to see detailed source information")
-                
-                # Show unique sections
-                unique_sections = list(set([
-                    s.get('full_section', 'Unknown')[:50] 
-                    for s in result['sources']
-                ]))
-                print(f"\n   Sections referenced:")
-                for i, section in enumerate(unique_sections[:3], 1):
-                    print(f"   {i}. {section}...")
-            else:
-                print("\n⚠️  No relevant sources found - answer may be incomplete")
-        
-        except KeyboardInterrupt:
-            print("\n\n👋 Goodbye!")
-            break
-        except Exception as e:
-            print(f"\n❌ Error: {e}")
-            import traceback
-            traceback.print_exc()
-
-if __name__ == "__main__":
-    main()
+    return https_fn.Response(
+        response=response.content,
+        status=response.status_code,
+        headers=dict(response.headers)
+    )
