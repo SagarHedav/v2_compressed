@@ -1,6 +1,6 @@
 # Hugging Face Spaces requirements
 groq==0.4.2
-pinecone-client
+pinecone
 neo4j==5.17.0
 PyPDF2==3.0.1
 python-dotenv==1.0.0
