@@ -10,14 +10,14 @@ import { ChatInput } from "../components/ui/ChatInput";
 import { MessageBubble } from "../components/ui/MessageBubble";
 import { PageTransition } from "../components/ui/PageTransition";
 import { VoiceOverlay } from "../components/ui/VoiceOverlay";
-import { ArrowLeft, BookOpen, ChevronRight, FileText, Layout, Lightbulb, MessageSquare, MoreHorizontal, Settings, Share, CheckCircle, Map, Trash2, AlertCircle, Loader2, Wifi, WifiOff, Plus } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, FileText, Layout, Lightbulb, MessageSquare, MoreHorizontal, Settings, Share, CheckCircle, Map, Trash2, AlertCircle, Loader2, Wifi, WifiOff, Plus, User as UserIcon, X } from "lucide-react";
 import { MdSearch } from "react-icons/md";
 import chatbotApi from "../lib/chatbotApi";
 import api from "../lib/api";
 
 const INITIAL_MESSAGE = {
     role: "assistant",
-    content: "Hello! I am Asvix, your academic assistant. How can I help you today?",
+    content: "Hello! I am DigiLab, your academic assistant. How can I help you today?",
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
@@ -40,7 +40,15 @@ export function ChatPage() {
     const [markingComplete, setMarkingComplete] = React.useState(false);
 
     // Get user from local storage to determine role
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const user = React.useMemo(() => {
+        try {
+            const saved = localStorage.getItem("user");
+            return (saved && saved !== "undefined") ? JSON.parse(saved) : null;
+        } catch (e) {
+            console.error("Error parsing user data", e);
+            return null;
+        }
+    }, []);
     const isTeacher = user?.role === "teacher";
     const isGuest = !user;
 
@@ -64,6 +72,7 @@ export function ChatPage() {
     const [error, setError] = React.useState(null);
     const [isConnected, setIsConnected] = React.useState(false);
     const [isCheckingConnection, setIsCheckingConnection] = React.useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
     const messagesEndRef = React.useRef(null);
 
     // Check backend health and fetch sessions on mount
@@ -263,93 +272,147 @@ export function ChatPage() {
     return (
         <PageTransition className="relative flex h-screen w-full overflow-hidden bg-background-base text-foreground">
             {/* Sidebar - Context / History */}
-            <div className="hidden w-80 flex-col border-r border-border-base dark:border-white/5 bg-background-base/50 backdrop-blur-xl lg:flex">
-                <div className="flex h-16 items-center border-b border-border-base dark:border-white/5 px-6">
-                    <Link
-                        to={isGuest ? "/" : (isTeacher ? "/dashboard?mode=teacher" : "/dashboard")}
-                        className="flex items-center space-x-2 text-foreground-muted hover:text-foreground"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        <span className="text-sm font-medium">{isGuest ? t('nav.home') : t('chat.backToDashboard')}</span>
-                    </Link>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {/* Connection Status */}
-                    <div className="flex items-center justify-between px-2 py-2 rounded-lg bg-accent/5 dark:bg-white/5">
-                        <div className="flex items-center gap-2">
-                            {isCheckingConnection ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-foreground-muted" />
-                            ) : isConnected ? (
-                                <Wifi className="h-4 w-4 text-green-500" />
-                            ) : (
-                                <WifiOff className="h-4 w-4 text-red-500" />
-                            )}
-                            <span className="text-xs text-foreground-muted">
-                                {isCheckingConnection ? "Connecting..." : isConnected ? "Connected" : "Offline"}
-                            </span>
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleClearHistory}
-                            className="h-8 px-2 text-foreground-muted hover:text-red-500"
-                            title="Clear chat history"
+            <AnimatePresence>
+                {isSidebarOpen && (
+                    <>
+                        {/* Mobile Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="fixed inset-0 z-[55] bg-black/40 backdrop-blur-sm lg:hidden"
+                        />
+                        <motion.div
+                            initial={{ x: -320 }}
+                            animate={{ x: 0 }}
+                            exit={{ x: -320 }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="fixed inset-y-0 left-0 z-[60] flex w-80 flex-col border-r border-border-base dark:border-white/5 bg-background-base/50 backdrop-blur-xl lg:relative lg:flex"
                         >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
-
-                    <Button
-                        onClick={handleNewChat}
-                        className="w-full justify-start gap-2 bg-accent/10 text-accent hover:bg-accent/20 border-accent/20"
-                        variant="outline"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Chat
-                    </Button>
-
-                    <div className="space-y-2 pt-2">
-                        <h3 className="px-2 text-xs font-semibold text-foreground-muted uppercase tracking-wider">{t('chat.today')}</h3>
-                        {sessions.length > 0 ? (
-                            sessions.map((session) => (
-                                <button
-                                    key={session.id}
-                                    onClick={() => handleSelectSession(session.id)}
-                                    className={cn(
-                                        "flex w-full items-center space-x-3 rounded-lg px-2 py-2 text-sm transition-all",
-                                        currentSessionId === session.id
-                                            ? "bg-accent/10 text-accent font-medium ring-1 ring-accent/20"
-                                            : "text-foreground hover:bg-accent/5 dark:hover:bg-white/5"
-                                    )}
+                            <div className="flex h-16 items-center justify-between border-b border-border-base dark:border-white/5 px-6">
+                                <Link
+                                    to={isGuest ? "/" : (isTeacher ? "/dashboard?mode=teacher" : "/dashboard")}
+                                    className="flex items-center space-x-2 text-foreground-muted hover:text-foreground"
                                 >
-                                    <MessageSquare className={cn("h-4 w-4", currentSessionId === session.id ? "text-accent" : "text-foreground-muted")} />
-                                    <span className="truncate flex-1 text-left">{session.title || "Quantum Physics Basics"}</span>
-                                </button>
-                            ))
-                        ) : (
-                            <div className="px-2 py-4 text-center rounded-lg border border-dashed border-border-base dark:border-white/5">
-                                <p className="text-xs text-foreground-muted">No recent chats. Start a new one!</p>
+                                    <ArrowLeft className="h-4 w-4" />
+                                    <span className="text-sm font-medium">{isGuest ? t('nav.home') : t('chat.backToDashboard')}</span>
+                                </Link>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsSidebarOpen(false)}
+                                    className="h-12 w-12 text-foreground hover:text-red-500 bg-foreground/5 hover:bg-foreground/10 transition-all rounded-full flex items-center justify-center shrink-0 border border-border-base dark:border-white/10"
+                                    title="Close sidebar"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+                                        <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                </Button>
                             </div>
-                        )}
-                    </div>
-                </div>
-            </div>
+
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                {/* Connection Status */}
+                                <div className="flex items-center justify-between px-2 py-2 rounded-lg bg-accent/5 dark:bg-white/5">
+                                    <div className="flex items-center gap-2">
+                                        {isCheckingConnection ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-foreground-muted" />
+                                        ) : isConnected ? (
+                                            <Wifi className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                            <WifiOff className="h-4 w-4 text-red-500" />
+                                        )}
+                                        <span className="text-xs text-foreground-muted">
+                                            {isCheckingConnection ? "Connecting..." : isConnected ? "Connected" : "Offline"}
+                                        </span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleClearHistory}
+                                        className="h-8 px-2 text-foreground-muted hover:text-red-500"
+                                        title="Clear chat history"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                <Button
+                                    onClick={handleNewChat}
+                                    className="w-full justify-start gap-2 bg-accent/10 text-accent hover:bg-accent/20 border-accent/20"
+                                    variant="outline"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    New Chat
+                                </Button>
+
+                                <div className="space-y-2 pt-2">
+                                    <h3 className="px-2 text-xs font-semibold text-foreground-muted uppercase tracking-wider">{t('chat.today')}</h3>
+                                    {sessions.length > 0 ? (
+                                        sessions.map((session) => (
+                                            <button
+                                                key={session.id}
+                                                onClick={() => handleSelectSession(session.id)}
+                                                className={cn(
+                                                    "flex w-full items-center space-x-3 rounded-lg px-2 py-2 text-sm transition-all",
+                                                    currentSessionId === session.id
+                                                        ? "bg-accent/10 text-accent font-medium ring-1 ring-accent/20"
+                                                        : "text-foreground hover:bg-accent/5 dark:hover:bg-white/5"
+                                                )}
+                                            >
+                                                <MessageSquare className={cn("h-4 w-4", currentSessionId === session.id ? "text-accent" : "text-foreground-muted")} />
+                                                <span className="truncate flex-1 text-left">{session.title || "Quantum Physics Basics"}</span>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-2 py-4 text-center rounded-lg border border-dashed border-border-base dark:border-white/5">
+                                            <p className="text-xs text-foreground-muted">No recent chats. Start a new one!</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* User Section */}
+                            {!isGuest && (
+                                <div className="mt-auto border-t border-border-base dark:border-white/5 p-4">
+                                    <Link
+                                        to="/profile"
+                                        className="flex w-full items-center gap-3 rounded-xl p-3 transition-all hover:bg-accent/10 group bg-accent/5"
+                                    >
+                                        <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center text-accent ring-2 ring-accent/20 group-hover:ring-accent/40 transition-all overflow-hidden shrink-0">
+                                            {user?.profilePhoto ? (
+                                                <img src={user.profilePhoto} alt="Avatar" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <UserIcon className="h-5 w-5" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                            <p className="text-sm font-medium text-foreground truncate">{user?.name || "User Name"}</p>
+                                            <p className="text-xs text-foreground-muted truncate capitalize">{user?.role || "Student"}</p>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-foreground-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+                                    </Link>
+                                </div>
+                            )}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Main Chat Area */}
             <div className="flex flex-1 flex-col relative">
                 {/* Search, Theme & Actions Top Bar */}
                 {isTeacher && (
-                    <div className="flex h-16 items-center justify-between border-b border-border-base dark:border-white/5 bg-background-base/50 px-6 backdrop-blur-md">
-                        <div className="flex items-center flex-1">
-                            <div className="relative w-64 max-w-xs">
+                    <div className="flex h-16 items-center justify-between border-b border-border-base dark:border-white/5 bg-background-base/50 px-4 sm:px-6 backdrop-blur-md">
+                        <div className="flex items-center flex-1 gap-2">
+                            <div className="relative flex-1 max-w-xs">
                                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                     <MdSearch className="h-5 w-5 text-foreground-muted" />
                                 </div>
                                 <input
                                     type="text"
-                                    placeholder="Search past conversations..."
-                                    className="block w-full rounded-full border-0 bg-white/50 dark:bg-white/5 py-2 pl-10 pr-4 text-sm text-foreground placeholder-foreground-subtle ring-1 ring-inset ring-gray-300 dark:ring-white/10 focus:ring-2 focus:ring-accent sm:text-sm sm:leading-6 backdrop-blur-sm transition-all focus:bg-white dark:focus:bg-white/10"
+                                    placeholder={t('chat.searchPlaceholder') || "Search..."}
+                                    className="block w-full rounded-full border-0 bg-white/50 dark:bg-white/5 py-1.5 pl-9 pr-4 text-sm text-foreground placeholder-foreground-subtle ring-1 ring-inset ring-gray-300 dark:ring-white/10 focus:ring-2 focus:ring-accent sm:text-sm sm:leading-6 backdrop-blur-sm transition-all focus:bg-white dark:focus:bg-white/10"
                                 />
                             </div>
 
@@ -357,7 +420,7 @@ export function ChatPage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={toggleTheme}
-                                className="ml-2 text-foreground-muted hover:text-foreground rounded-full hover:bg-white/10 shrink-0"
+                                className="text-foreground-muted hover:text-foreground rounded-full hover:bg-white/10 shrink-0 h-9 w-9 sm:h-10 sm:w-10"
                             >
                                 <svg className="hidden h-5 w-5 dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -368,12 +431,13 @@ export function ChatPage() {
                             </Button>
                         </div>
 
-                        <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm" className="text-foreground-muted hover:text-foreground">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
+                            <Button variant="ghost" size="sm" className="hidden sm:flex text-foreground-muted hover:text-foreground h-9">
                                 <Share className="h-4 w-4 mr-2" /> {t('chat.share')}
                             </Button>
-                            <Button size="sm" className="bg-accent text-white hover:bg-accent-bright">
-                                <FileText className="h-4 w-4 mr-2" /> {t('chat.savePlan')}
+                            <Button size="sm" className="bg-accent text-white hover:bg-accent-bright h-9 px-3 sm:px-4">
+                                <FileText className="h-4 w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">{t('chat.savePlan')}</span>
                             </Button>
                         </div>
                     </div>
@@ -384,43 +448,43 @@ export function ChatPage() {
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="border-b border-border-base dark:border-white/5 bg-gradient-to-r from-accent/5 via-accent/10 to-accent/5 px-6 py-4"
+                        className="border-b border-border-base dark:border-white/5 bg-gradient-to-r from-accent/5 via-accent/10 to-accent/5 px-4 sm:px-6 py-3 sm:py-4"
                     >
-                        <div className="max-w-3xl mx-auto flex items-center justify-between">
-                            <div className="flex items-center gap-4">
+                        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                                 <Link
                                     to="/roadmaps"
-                                    className="flex items-center gap-2 text-sm text-foreground-muted hover:text-accent transition-colors"
+                                    className="flex items-center gap-2 text-xs sm:text-sm text-foreground-muted hover:text-accent transition-colors"
                                 >
-                                    <Map className="h-4 w-4" />
-                                    <span className="hidden sm:inline">{currentRoadmap?.title}</span>
+                                    <Map className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                    <span className="max-w-[120px] sm:max-w-none truncate">{currentRoadmap?.title}</span>
                                 </Link>
-                                <ChevronRight className="h-4 w-4 text-foreground-muted" />
+                                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-foreground-muted shrink-0" />
                                 <div className="flex items-center gap-2">
-                                    <BookOpen className="h-4 w-4 text-accent" />
-                                    <span className="font-semibold text-foreground">{currentTopic.title}</span>
+                                    <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-accent shrink-0" />
+                                    <span className="font-semibold text-sm sm:text-base text-foreground truncate max-w-[150px] sm:max-w-none">{currentTopic.title}</span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                                 <Button
                                     size="sm"
                                     onClick={handleMarkComplete}
                                     disabled={markingComplete}
                                     className={cn(
-                                        "gap-2 transition-all",
+                                        "flex-1 sm:flex-none gap-2 transition-all h-8 sm:h-9 py-0",
                                         isTopicCompleted
                                             ? "bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500/20"
                                             : "bg-accent text-white hover:bg-accent-bright"
                                     )}
                                 >
                                     <CheckCircle className={cn("h-4 w-4", isTopicCompleted && "fill-current")} />
-                                    {markingComplete ? "Saving..." : isTopicCompleted ? "Completed" : "Mark Complete"}
+                                    <span className="text-xs sm:text-sm">{markingComplete ? "Saving..." : isTopicCompleted ? "Done" : "Mark Done"}</span>
                                 </Button>
                                 {nextTopic && isTopicCompleted && (
-                                    <Link to={`/chat?roadmapId=${roadmapId}&topicId=${nextTopic.id}`}>
-                                        <Button size="sm" variant="outline" className="gap-2 border-accent/30 text-accent hover:bg-accent/10">
-                                            Next: {nextTopic.title}
-                                            <ChevronRight className="h-4 w-4" />
+                                    <Link to={`/chat?roadmapId=${roadmapId}&topicId=${nextTopic.id}`} className="flex-1 sm:flex-none">
+                                        <Button size="sm" variant="outline" className="w-full gap-2 border-accent/20 text-accent hover:bg-accent/5 h-8 sm:h-9 py-0 group">
+                                            <span className="text-xs sm:text-sm">Next</span>
+                                            <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-all" />
                                         </Button>
                                     </Link>
                                 )}
@@ -428,6 +492,21 @@ export function ChatPage() {
                         </div>
                     </motion.div>
                 )}
+
+                {/* Sidebar Toggle (+ Icon) - Fixed at Bottom Left */}
+                <AnimatePresence>
+                    {!isSidebarOpen && (
+                        <motion.button
+                            initial={{ scale: 0, opacity: 0, rotate: -90 }}
+                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                            exit={{ scale: 0, opacity: 0, rotate: 90 }}
+                            onClick={() => setIsSidebarOpen(true)}
+                            className="fixed bottom-6 left-6 z-50 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-accent text-white shadow-xl shadow-accent/40 transition-all active:scale-90 hover:scale-105"
+                        >
+                            <Plus className="h-6 w-6 sm:h-7 sm:w-7" />
+                        </motion.button>
+                    )}
+                </AnimatePresence>
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-8">
@@ -466,7 +545,10 @@ export function ChatPage() {
                     </div>
 
                     {/* Input Area */}
-                    <div className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-background-base via-background-base/95 to-transparent pb-6 pt-10 lg:pl-80">
+                    <div className={cn(
+                        "fixed bottom-0 left-0 w-full bg-gradient-to-t from-background-base via-background-base/95 to-transparent pb-4 sm:pb-6 pt-10 transition-all duration-300 z-40",
+                        isSidebarOpen && "lg:pl-80"
+                    )}>
                         <div className="mx-auto max-w-3xl px-4 relative">
                             {/* Mode Selector - Teacher Only */}
                             {isTeacher && (

@@ -12,7 +12,7 @@ export function Footer() {
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20">
                                 <BookOpen className="h-5 w-5 text-accent" />
                             </div>
-                            <span className="text-xl font-semibold tracking-tight text-foreground">Asvix</span>
+                            <span className="text-xl font-semibold tracking-tight text-foreground">DigiLab</span>
                         </div>
                         <p className="max-w-xs text-sm text-foreground-muted">
                             Empowering the next generation of learners and educators with AI-driven academic intelligence.
@@ -62,7 +62,7 @@ export function Footer() {
 
                 <div className="mt-16 border-t border-white/5 pt-8 text-center sm:flex sm:items-center sm:justify-between sm:text-left">
                     <p className="text-sm text-foreground-subtle">
-                        &copy; {new Date().getFullYear()} Asvix Academic AI. All rights reserved.
+                        &copy; {new Date().getFullYear()} DigiLab Academic AI. All rights reserved.
                     </p>
                     <div className="mt-4 flex justify-center space-x-6 text-sm text-foreground-subtle sm:mt-0">
                         <Link to="#" className="hover:text-foreground transition-colors">Terms</Link>
