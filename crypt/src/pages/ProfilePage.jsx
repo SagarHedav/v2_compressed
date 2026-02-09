@@ -16,19 +16,50 @@ export function ProfilePage() {
     const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
     const [isDownloadDropdownOpen, setIsDownloadDropdownOpen] = useState(false);
     const [saveStatus, setSaveStatus] = useState(null);
-
-    // Profile State
-    const [profileData, setProfileData] = useState({
-        fullName: "John Doe",
-        preferredName: "Johnny",
-        age: "35",
-        gender: "male",
-        location: "Cambridge, MA",
-        tone: "professional",
-        avatar: null // Will store the preview URL
+    // Backend State & Logic
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [userData, setUserData] = useState(() => {
+        try {
+            const saved = localStorage.getItem("user");
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            console.error("Error parsing user data from localStorage", e);
+            return null;
+        }
     });
 
     const fileInputRef = useRef(null);
+
+    // Profile State (Sync with userData or defaults)
+    const [profileData, setProfileData] = useState(() => {
+        try {
+            const saved = localStorage.getItem("user");
+            const data = (saved && saved !== "undefined") ? JSON.parse(saved) : {};
+            return {
+                fullName: data.name || "Default User",
+                email: data.email || "",
+                preferredName: data.preferredName || "",
+                age: data.age || "",
+                gender: data.gender || "",
+                location: data.location || "",
+                tone: data.preferences?.tone || "professional",
+                avatar: data.profilePhoto || null
+            };
+        } catch (e) {
+            console.error("Error parsing profile data from localStorage", e);
+            return {
+                fullName: "Default User",
+                email: "",
+                preferredName: "",
+                age: "",
+                gender: "",
+                location: "",
+                tone: "professional",
+                avatar: null
+            };
+        }
+    });
 
     // Security State
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -112,66 +143,61 @@ export function ProfilePage() {
         </div>
     );
 
-    // Backend State & Logic
-    const [loading, setLoading] = useState(false);
-    const [userData, setUserData] = useState(null);
-    const [formData, setFormData] = useState({
-        name: "",
-        email: "",
-        preferredName: "",
-        age: "",
-        gender: "",
-        location: "",
-        primaryLanguage: "en",
-        profilePhoto: "",
-        preferences: {
-            tone: "neutral"
-        }
-    });
-
     useEffect(() => {
         fetchUserData();
     }, []);
 
     const fetchUserData = async () => {
+        setLoading(true);
+        setError(null);
         try {
             const { data } = await api.get('/auth/me');
             setUserData(data);
-            setFormData({
-                name: data.name || "",
+            const freshData = {
+                fullName: data.name || "",
                 email: data.email || "",
                 preferredName: data.preferredName || "",
                 age: data.age || "",
                 gender: data.gender || "",
                 location: data.location || "",
-                primaryLanguage: data.primaryLanguage || "en",
-                profilePhoto: data.profilePhoto || "",
-                preferences: {
-                    tone: data.preferences?.tone || "neutral"
-                }
-            });
+                tone: data.preferences?.tone || "professional",
+                avatar: data.profilePhoto || null
+            };
+            setProfileData(freshData);
+
             // Also sync app language if user has one saved
             if (data.primaryLanguage && translations[data.primaryLanguage]) {
                 setLanguage(data.primaryLanguage);
             }
-        } catch (error) {
-            console.error("Failed to fetch user data", error);
+        } catch (err) {
+            console.error("Failed to fetch user data", err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleUpdateProfile = async () => {
         setLoading(true);
         try {
-            // Update formData with current app language before saving
             const updatedData = {
-                ...formData,
-                primaryLanguage: language
+                name: profileData.fullName,
+                preferredName: profileData.preferredName,
+                age: profileData.age,
+                gender: profileData.gender,
+                location: profileData.location,
+                primaryLanguage: language,
+                profilePhoto: profileData.avatar,
+                preferences: {
+                    tone: profileData.tone
+                }
             };
 
             const { data } = await api.put('/auth/profile', updatedData);
             setUserData(data);
             localStorage.setItem("user", JSON.stringify(data));
-            alert(t('profile.saveChanges') + " Success!"); // Simple feedback
+            setSaveStatus('success');
+            setTimeout(() => setSaveStatus(null), 3000);
         } catch (error) {
             console.error("Failed to update profile", error);
             alert("Failed to update profile");
@@ -235,12 +261,7 @@ export function ProfilePage() {
     };
 
     const handleSaveChanges = () => {
-        // Mocking API call
-        setSaveStatus('saving');
-        setTimeout(() => {
-            setSaveStatus('success');
-            setTimeout(() => setSaveStatus(null), 3000);
-        }, 8000);
+        handleUpdateProfile();
     };
 
     const handleInputChange = (e) => {
@@ -248,7 +269,16 @@ export function ProfilePage() {
         setProfileData(prev => ({ ...prev, [name]: value }));
     };
 
-    if (!userData && !formData.email) return <div className="p-8 text-center">Loading...</div>;
+    if (loading && !userData) {
+        return (
+            <div className="flex h-[400px] items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+                    <p className="text-foreground-muted animate-pulse font-medium">{t('common.loading') || 'Loading profile...'}</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="mx-auto max-w-4xl space-y-8 pb-12 relative">
@@ -611,7 +641,7 @@ export function ProfilePage() {
                                                         onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
                                                         className="flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-white border-black/10 text-foreground focus-visible:ring-accent/50 focus-visible:ring-offset-white shadow-sm dark:bg-[#0F0F12] dark:border-white/10 dark:text-foreground dark:focus-visible:ring-accent/50 dark:focus-visible:ring-offset-background-base"
                                                     >
-                                                        {t(`${getLangKey(language)}`)}
+                                                        {t(`common.${getLangKey(language)}`)}
                                                         <ChevronDown className="h-4 w-4 opacity-50" />
                                                     </button>
 
@@ -627,7 +657,7 @@ export function ProfilePage() {
                                                                         }}
                                                                         className={`relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none transition-colors hover:bg-accent/10 hover:text-accent ${language === lang ? 'bg-accent/10 text-accent' : 'text-foreground'}`}
                                                                     >
-                                                                        {t(`${getLangKey(lang)}`)}
+                                                                        {t(`common.${getLangKey(lang)}`)}
                                                                     </button>
                                                                 ))}
                                                             </div>
@@ -655,7 +685,7 @@ export function ProfilePage() {
 
                                     <div className="space-y-2">
                                         <label className="text-xs font-mono text-foreground-subtle uppercase">{t('profile.email')}</label>
-                                        <Input defaultValue="john.doe@university.edu" disabled className="opacity-75 cursor-not-allowed" />
+                                        <Input value={profileData.email} disabled className="opacity-75 cursor-not-allowed" />
                                     </div>
 
                                 </div>
