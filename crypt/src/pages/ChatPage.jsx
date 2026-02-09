@@ -17,7 +17,7 @@ import api from "../lib/api";
 
 const INITIAL_MESSAGE = {
     role: "assistant",
-    content: "Hello! I am Asvix, your academic assistant. How can I help you today?",
+    content: "Hello! I am DigiLab, your academic assistant. How can I help you today?",
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 

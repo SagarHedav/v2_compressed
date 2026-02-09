@@ -42,7 +42,7 @@ export function LoginPage() {
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
                     <p className="text-sm text-foreground-muted">
-                        Enter your email to sign in to your Asvix account
+                        Enter your email to sign in to your DigiLab account
                     </p>
                 </div>
 

@@ -48,7 +48,7 @@ export function MessageBubble({ message }) {
                     ) : (
                         <>
                             <MdSmartToy size={14} />
-                            <span>Asvix</span>
+                            <span>DigiLab</span>
                         </>
                     )}
                 </div>
